@@ -172,18 +172,18 @@ def process_control():
     elif cfg['data_name'] in ['CIFAR10', 'CIFAR100']:
         cfg['data_shape'] = [3, 32, 32]
         cfg['optimizer_name'] = 'SGD'
-        cfg['lr'] = 1e-1
+        cfg['lr'] = 1e-3
         cfg['momentum'] = 0.9
         cfg['weight_decay'] = 5e-4
-        cfg['scheduler_name'] = 'MultiStepLR'
+        cfg['scheduler_name'] = 'None'
         cfg['factor'] = 0.1
         if cfg['data_split_mode'] == 'iid':
             cfg['num_epochs'] = {'global': 400, 'local': 5}
             cfg['batch_size'] = {'train': 10, 'test': 50}
             cfg['milestones'] = [150, 250]
         elif 'non-iid' in cfg['data_split_mode']:
-            cfg['num_epochs'] = {'global': 800, 'local': 5}
-            cfg['batch_size'] = {'train': 10, 'test': 50}
+            cfg['num_epochs'] = {'global': 2500, 'local': 2}
+            cfg['batch_size'] = {'train': 16, 'test': 50}
             cfg['milestones'] = [300, 500]
         elif cfg['data_split_mode'] == 'none':
             cfg['num_epochs'] = 400
