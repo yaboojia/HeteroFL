@@ -3,6 +3,7 @@ import copy
 import datetime
 import models
 import numpy as np
+import random
 import os
 import shutil
 import time
@@ -22,6 +23,10 @@ parser = argparse.ArgumentParser(description='cfg')
 for k in cfg:
     exec('parser.add_argument(\'--{0}\', default=cfg[\'{0}\'], type=type(cfg[\'{0}\']))'.format(k))
 parser.add_argument('--control_name', default=None, type=str)
+parser.add_argument('--gpuid', default=0, type=int)
+parser.add_argument('--logname', default=None, type=str)
+
+
 args = vars(parser.parse_args())
 for k in cfg:
     cfg[k] = args[k]
@@ -34,8 +39,12 @@ cfg['pivot'] = -float('inf')
 cfg['metric_name'] = {'train': {'Local': ['Local-Loss', 'Local-Accuracy']},
                       'test': {'Local': ['Local-Loss', 'Local-Accuracy'], 'Global': ['Global-Loss', 'Global-Accuracy']}}
 
+cfg['gpuid'] = args['gpuid']
+cfg['logname'] = args['logname']
+cfg['device'] = 'cuda:{}'.format(cfg['gpuid'])
+
 wandb.init(
-    group='mnist',
+    group=cfg['logname'],
     project='federateLearn',
     config=cfg
 )
@@ -44,18 +53,32 @@ wandb.init(
 def main():
     process_control()
     seeds = list(range(cfg['init_seed'], cfg['init_seed'] + cfg['num_experiments']))
+    print(cfg)
     for i in range(cfg['num_experiments']):
         model_tag_list = [str(seeds[i]), cfg['data_name'], cfg['subset'], cfg['model_name'], cfg['control_name']]
         cfg['model_tag'] = '_'.join([x for x in model_tag_list if x])
         print('Experiment: {}'.format(cfg['model_tag']))
         runExperiment()
+        wandb.finish()
     return
 
 
 def runExperiment():
+    '''
     seed = int(cfg['model_tag'].split('_')[0])
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
+    '''
+
+    seed = 2023
+    torch.manual_seed(seed)  # 设置cpu随机种子， 方便复现
+    torch.cuda.manual_seed(seed)  # 设置GPU种子， 方便复现
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    # torch.set_deterministic_debug_mode('default')
+    os.environ['PYTHONHASHSEED'] = str(seed)
+
     dataset = fetch_dataset(cfg['data_name'], cfg['subset'])
     process_dataset(dataset)
     model = eval('models.{}(model_rate=cfg["global_model_rate"]).to(cfg["device"])'.format(cfg['model_name']))
@@ -88,12 +111,13 @@ def runExperiment():
         else:
             scheduler.step()
         logger.safe(False)
-        # model_state_dict = model.state_dict()
+        model_state_dict = model.state_dict()
+        #to save the best model's params
         save_result = {
             'cfg': cfg, 'epoch': epoch + 1, 'data_split': data_split, 'label_split': label_split,
-            # 'model_dict': model_state_dict, 'optimizer_dict': optimizer.state_dict(),
+            'model_dict': model_state_dict, 'optimizer_dict': optimizer.state_dict(),
             'scheduler_dict': scheduler.state_dict(), 'logger': logger}
-        # save(save_result, './output/model/{}_checkpoint.pt'.format(cfg['model_tag']))
+        save(save_result, './output/model/{}_checkpoint.pt'.format(cfg['model_tag']))
         if cfg['pivot'] < logger.mean['test/{}'.format(cfg['pivot_metric'])]:
             cfg['pivot'] = logger.mean['test/{}'.format(cfg['pivot_metric'])]
             shutil.copy('./output/model/{}_checkpoint.pt'.format(cfg['model_tag']),
