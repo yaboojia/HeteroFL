@@ -98,7 +98,7 @@ def recur(fn, input, *args):
 
 
 def process_dataset(dataset):
-    if cfg['data_name'] in ['MNIST', 'CIFAR10', 'tinyimagenet']:
+    if cfg['data_name'] in ['MNIST', 'CIFAR10', 'tinyimagenet', 'CIFAR100']:
         cfg['classes_size'] = dataset['train'].classes_size
     elif cfg['data_name'] in ['WikiText2']:
         cfg['vocab'] = dataset['train'].vocab
